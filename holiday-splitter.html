@@ -241,7 +241,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     <div class="ib-title">Add to Home Screen</div>
     <div class="ib-sub">Tap <strong>Share</strong> then <strong>"Add to Home Screen"</strong> for app-like access</div>
   </div>
-  <button class="ib-close" onclick="document.getElementById('install-banner').style.display='none'">×</button>
+  <button class="ib-close" onclick="dismissInstallBanner()">×</button>
 </div>
 
 <!-- TOTALS -->
@@ -1084,12 +1084,28 @@ function switchTab(tab) {
   if(tab==='summary') renderSummary();
 }
 
+// ── INSTALL BANNER ───────────────────────────────────────────────────
+function dismissInstallBanner() {
+  document.getElementById('install-banner').style.display = 'none';
+  try { localStorage.setItem('install_banner_dismissed', '1'); } catch(e) {}
+}
+
+function checkInstallBanner() {
+  try {
+    if (localStorage.getItem('install_banner_dismissed') === '1') {
+      const banner = document.getElementById('install-banner');
+      if (banner) banner.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────
 const loaded = loadData();
 if (!loaded) {
   transactions = JSON.parse(JSON.stringify(DEFAULT_TRANSACTIONS));
 }
 renderAll();
+checkInstallBanner();
 
 // Auto-save on page close
 window.addEventListener('beforeunload', ()=>{
