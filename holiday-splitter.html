@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Splitter">
+<meta name="theme-color" content="#1A56DB">
+<title>Canada Trip · Expense Splitter</title>
+<style>
+:root {
+  --bg: #F0F4F8;
+  --card: #FFFFFF;
+  --accent: #1A56DB;
+  --accent-light: #EBF0FF;
+  --red: #E53E3E;
+  --green: #38A169;
+  --couple1: #805AD5;
+  --couple2: #D97706;
+  --couple3: #2F855A;
+  --text: #1A202C;
+  --muted: #718096;
+  --border: #E2E8F0;
+  --radius: 14px;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 120px; }
+
+/* HEADER */
+.header { background: var(--accent); color: white; padding: 52px 16px 14px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(26,86,219,0.3); }
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+.header-sub { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+.header-actions { display: flex; gap: 8px; margin-top: 10px; }
+.hdr-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; font-family: var(--font); cursor: pointer; }
+.hdr-btn:active { background: rgba(255,255,255,0.35); }
+.save-indicator { font-size: 10px; opacity: 0.7; margin-left: auto; align-self: center; }
+
+/* TOTALS */
+.totals-bar { background: white; padding: 14px; margin: 12px 12px 0; border-radius: var(--radius); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.totals-bar h2 { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.totals-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.total-item { text-align: center; }
+.total-amount { font-size: 17px; font-weight: 700; }
+.total-label { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.total-item.c1 .total-amount { color: var(--couple1); }
+.total-item.c2 .total-amount { color: var(--couple2); }
+.total-item.c3 .total-amount { color: var(--couple3); }
+.grand-total-row { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+.grand-total-row .label { font-size: 13px; font-weight: 600; }
+.grand-total-row .amount { font-size: 22px; font-weight: 800; color: var(--accent); }
+
+/* TABS */
+.tabs { display: flex; background: white; margin: 12px 12px 0; border-radius: var(--radius); padding: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.tab-btn { flex: 1; padding: 9px; border: none; background: none; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-radius: 10px; transition: all 0.15s; }
+.tab-btn.active { background: var(--accent); color: white; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 16px 6px; }
+
+/* TXN CARD */
+.txn-card { background: var(--card); margin: 0 12px 8px; border-radius: var(--radius); box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+.txn-header { display: flex; align-items: center; padding: 13px 14px; gap: 12px; cursor: pointer; user-select: none; }
+.txn-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.txn-main { flex: 1; min-width: 0; }
+.txn-vendor { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txn-desc { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.txn-amts { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.txn-right { text-align: right; flex-shrink: 0; }
+.txn-amount { font-size: 16px; font-weight: 700; }
+.txn-chevron { color: var(--muted); font-size: 13px; margin-top: 2px; transition: transform 0.2s; }
+.txn-card.open .txn-chevron { transform: rotate(90deg); }
+.txn-detail { display: none; border-top: 1px solid var(--border); padding: 14px; }
+.txn-card.open .txn-detail { display: block; }
+
+/* DETAIL FORMS */
+.detail-row { margin-bottom: 12px; }
+.detail-row label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+.detail-row input[type="text"] { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+.detail-row input[type="text"]:focus { border-color: var(--accent); }
+
+/* PRESET BUTTONS */
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.preset-btn { font-size: 11px; font-weight: 600; padding: 6px 11px; border-radius: 20px; border: 1.5px solid var(--border); background: white; color: var(--text); cursor: pointer; font-family: var(--font); }
+.preset-btn:active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+/* COUPLE BLOCK */
+.split-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.couple-split-block { border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.couple-split-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; }
+.couple-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.couple-name-badge { display: flex; align-items: center; gap: 8px; }
+.couple-name { font-size: 14px; font-weight: 600; }
+.couple-members { font-size: 11px; color: var(--muted); }
+.couple-included { display: flex; align-items: center; gap: 8px; }
+.couple-total { font-size: 15px; font-weight: 700; }
+.toggle-btn { width: 40px; height: 24px; border-radius: 12px; background: #CBD5E0; border: none; position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.toggle-btn.on { background: var(--accent); }
+.toggle-btn::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle-btn.on::after { transform: translateX(16px); }
+
+/* ITEMS */
+.item-lines { padding: 0 12px 10px; border-top: 1px solid var(--border); background: #FAFBFF; }
+.item-line { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.item-line:last-of-type { border-bottom: none; }
+.item-line-name { flex: 1; }
+.item-line-name input[type="text"] { width: 100%; border: none; background: transparent; font-size: 13px; font-family: var(--font); color: var(--text); padding: 2px 0; outline: none; }
+.item-amount-wrap { display: flex; align-items: center; gap: 2px; }
+.item-amount-wrap span { font-size: 13px; color: var(--muted); }
+.item-amount-wrap input[type="number"] { width: 70px; border: 1.5px solid var(--border); border-radius: 8px; padding: 5px 7px; font-size: 13px; font-family: var(--font); text-align: right; outline: none; background: white; color: var(--text); }
+.item-amount-wrap input[type="number"]:focus { border-color: var(--accent); }
+.del-item-btn { background: none; border: none; color: #FC8181; font-size: 18px; cursor: pointer; padding: 2px 4px; line-height: 1; }
+.add-item-btn { display: flex; align-items: center; gap: 4px; background: none; border: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 0 2px; font-family: var(--font); }
+.alloc-note { font-size: 11px; padding: 4px 0 8px; }
+.alloc-note.ok { color: var(--green); }
+.alloc-note.warn { color: var(--red); }
+
+/* SUMMARY */
+.summary-card { background: white; margin: 0 12px 10px; border-radius: var(--radius); padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.summary-couple-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+.summary-couple-name { font-size: 16px; font-weight: 700; }
+.summary-couple-total { font-size: 20px; font-weight: 800; }
+.summary-line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+.summary-line:last-child { border-bottom: none; }
+.summary-line .s-name { color: var(--muted); flex: 1; padding-right: 8px; }
+.summary-line .s-amt { font-weight: 600; flex-shrink: 0; }
+
+/* INSTALL BANNER */
+.install-banner { background: linear-gradient(135deg, #667EEA, #764BA2); color: white; margin: 12px 12px 0; border-radius: var(--radius); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+.install-banner .ib-icon { font-size: 22px; }
+.install-banner .ib-text { flex: 1; }
+.install-banner .ib-title { font-size: 13px; font-weight: 700; }
+.install-banner .ib-sub { font-size: 11px; opacity: 0.85; margin-top: 1px; }
+.install-banner .ib-close { background: rgba(255,255,255,0.25); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; font-size: 14px; cursor: pointer; }
+
+/* EXPORT PANEL */
+.export-panel { background: white; margin: 0 12px 10px; border-radius: var(--radius); padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.export-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.export-btn { display: flex; align-items: center; gap: 10px; width: 100%; background: var(--accent); color: white; border: none; border-radius: 12px; padding: 14px 16px; font-size: 15px; font-weight: 600; font-family: var(--font); cursor: pointer; margin-bottom: 8px; }
+.export-btn .eb-icon { font-size: 20px; }
+.export-btn.secondary { background: var(--bg); color: var(--text); border: 1.5px solid var(--border); }
+.export-note { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* PRINT STYLES */
+@media print {
+  body { background: white; padding: 0; font-size: 12px; }
+  .header, .totals-bar, .tabs, .install-banner, .tab-content, .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-page { page-break-after: always; }
+  .print-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #333; }
+  .print-title { font-size: 22px; font-weight: 800; }
+  .print-sub { font-size: 12px; color: #666; margin-top: 4px; }
+  .print-section { margin-bottom: 20px; }
+  .print-section-title { font-size: 14px; font-weight: 700; background: #f0f4f8; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; }
+  .print-couple { margin-bottom: 16px; }
+  .print-couple-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; border-bottom: 1.5px solid #ddd; padding-bottom: 4px; margin-bottom: 6px; }
+  .print-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-bottom: 1px solid #eee; }
+  .print-row:last-child { border-bottom: none; }
+  .print-row .pr-name { color: #555; flex: 1; }
+  .print-row .pr-amt { font-weight: 600; }
+  .print-grand { display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; border-top: 2px solid #333; padding-top: 8px; margin-top: 12px; }
+  .print-txn-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .print-txn-table th { background: #f0f4f8; padding: 5px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .print-txn-table td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+  .print-txn-table tr:last-child td { border-bottom: none; }
+}
+.print-only { display: none; }
+</style>
+</head>
+<body>
+
+<!-- PRINT-ONLY CONTENT -->
+<div class="print-only" id="print-doc"></div>
+
+<!-- HEADER -->
+<div class="header no-print">
+  <h1>🍁 Canada Trip</h1>
+  <div class="header-sub">James · Jenni &amp; James · Helen &amp; Adam · Michael &amp; Alison</div>
+  <div class="header-actions">
+    <button class="hdr-btn" onclick="saveData()">💾 Save</button>
+    <button class="hdr-btn" onclick="switchTab('export')">📄 Export PDF</button>
+    <span class="save-indicator" id="save-indicator"></span>
+  </div>
+</div>
+
+<!-- INSTALL BANNER -->
+<div class="install-banner no-print" id="install-banner">
+  <div class="ib-icon">📲</div>
+  <div class="ib-text">
+    <div class="ib-title">Add to Home Screen</div>
+    <div class="ib-sub">Tap <strong>Share</strong> then <strong>"Add to Home Screen"</strong> for app-like access</div>
+  </div>
+  <button class="ib-close" onclick="document.getElementById('install-banner').style.display='none'">×</button>
+</div>
+
+<!-- TOTALS -->
+<div class="totals-bar no-print">
+  <h2>Each couple owes James</h2>
+  <div class="totals-grid">
+    <div class="total-item c1"><div class="total-amount" id="total-c1">£0.00</div><div class="total-label">Jenni &amp; James</div></div>
+    <div class="total-item c2"><div class="total-amount" id="total-c2">£0.00</div><div class="total-label">Helen &amp; Adam</div></div>
+    <div class="total-item c3"><div class="total-amount" id="total-c3">£0.00</div><div class="total-label">Michael &amp; Alison</div></div>
+  </div>
+  <div class="grand-total-row">
+    <span class="label">Total Spent</span>
+    <span class="amount" id="grand-total">£0.00</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs no-print">
+  <button class="tab-btn active" onclick="switchTab('transactions')">Transactions</button>
+  <button class="tab-btn" onclick="switchTab('summary')">Summary</button>
+  <button class="tab-btn" onclick="switchTab('export')">Export</button>
+</div>
+
+<div class="tab-content active no-print" id="tab-transactions">
+  <div class="section-label">All Transactions</div>
+  <div id="txn-list"></div>
+</div>
+
+<div class="tab-content no-print" id="tab-summary">
+  <div class="section-label">What Each Couple Owes</div>
+  <div id="summary-list"></div>
+</div>
+
+<div class="tab-content no-print" id="tab-export">
+  <div class="section-label">Export &amp; Save</div>
+  <div class="export-panel">
+    <h3>Export to PDF</h3>
+    <button class="export-btn" onclick="exportPDF()">
+      <span class="eb-icon">📄</span>
+      <span>Generate PDF Summary</span>
+    </button>
+    <p class="export-note">
+      Tap the button above, then use Safari's <strong>Share → Save to Files</strong> or <strong>Print</strong> to save as PDF. The export includes a full summary of what each couple owes plus a transaction breakdown.
+    </p>
+  </div>
+  <div class="export-panel">
+    <h3>Data &amp; Storage</h3>
+    <button class="export-btn secondary" onclick="saveData()">
+      <span class="eb-icon">💾</span>
+      <span>Save Progress Now</span>
+    </button>
+    <button class="export-btn secondary" onclick="resetData()" style="margin-top:4px;">
+      <span class="eb-icon">🔄</span>
+      <span>Reset to Defaults</span>
+    </button>
+    <p class="export-note" style="margin-top:10px;">
+      Your data is automatically saved in this browser. Use <strong>Save Progress Now</strong> to make sure the latest changes are stored. Data persists when you close and reopen the page.
+    </p>
+  </div>
+</div>
+
+<script>
+// ── COUPLES ──────────────────────────────────────────────────────────
+const COUPLES = [
+  { id: 'c1', name: 'Jenni & James', members: 'Jenni · James', color: '#805AD5' },
+  { id: 'c2', name: 'Helen & Adam',  members: 'Helen · Adam',  color: '#D97706' },
+  { id: 'c3', name: 'Michael & Alison', members: 'Michael · Alison', color: '#2F855A' },
+];
+
+// ── DEFAULT DATA ──────────────────────────────────────────────────────
+const DEFAULT_TRANSACTIONS = [
+  { id:1,  vendor:'BULK BARN #504 OTTAWA',      amount:13.87,  description:'Snacks & groceries',           icon:'🛒',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:4.62}]}, c2:{included:true,items:[{name:'Share',amount:4.62}]}, c3:{included:true,items:[{name:'Share',amount:4.63}]} } },
+  { id:2,  vendor:'SHOPPERS DRUG MART 5888',    amount:17.54,  description:'Pharmacy / toiletries',        icon:'💊',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:5.85}]}, c2:{included:true,items:[{name:'Share',amount:5.85}]}, c3:{included:true,items:[{name:'Share',amount:5.84}]} } },
+  { id:3,  vendor:'SQUARE (BYWARD CAFE)',        amount:21.80,  description:'Byward Market café',           icon:'☕',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:7.27}]}, c2:{included:true,items:[{name:'Share',amount:7.27}]}, c3:{included:true,items:[{name:'Share',amount:7.26}]} } },
+  { id:4,  vendor:'IMPARK00110003A',             amount:6.45,   description:'Parking',                      icon:'🅿️',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:2.15}]}, c2:{included:true,items:[{name:'Share',amount:2.15}]}, c3:{included:true,items:[{name:'Share',amount:2.15}]} } },
+  { id:5,  vendor:'BREWSKEY',                    amount:139.97, description:'Bar / drinks evening',         icon:'🍺',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:46.66}]}, c2:{included:true,items:[{name:'Share',amount:46.66}]}, c3:{included:true,items:[{name:'Share',amount:46.65}]} } },
+  { id:6,  vendor:'LS QDC DE LA COMMUNE',        amount:16.62,  description:'Restaurant / drinks',          icon:'🍽️',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:5.54}]}, c2:{included:true,items:[{name:'Share',amount:5.54}]}, c3:{included:true,items:[{name:'Share',amount:5.54}]} } },
+  { id:7,  vendor:'SHDM - CDL',                  amount:9.14,   description:'Shoppers / convenience store', icon:'🧴',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:3.05}]}, c2:{included:true,items:[{name:'Share',amount:3.05}]}, c3:{included:true,items:[{name:'Share',amount:3.04}]} } },
+  { id:8,  vendor:'RESTAURANT L AVENUE',         amount:133.09, description:"Dinner at L'Avenue",           icon:'🍷',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:44.36}]}, c2:{included:true,items:[{name:'Share',amount:44.36}]}, c3:{included:true,items:[{name:'Share',amount:44.37}]} } },
+  { id:9,  vendor:'COUCHE-TARD #1217',           amount:6.43,   description:'Convenience store',            icon:'🏪',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:2.14}]}, c2:{included:true,items:[{name:'Share',amount:2.14}]}, c3:{included:true,items:[{name:'Share',amount:2.15}]} } },
+  { id:10, vendor:'HERTZ, RA,',                  amount:187.80, description:'Car rental',                   icon:'🚗',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:62.60}]}, c2:{included:true,items:[{name:'Share',amount:62.60}]}, c3:{included:true,items:[{name:'Share',amount:62.60}]} } },
+  { id:11, vendor:'CAFE OLIMPICO DOWNTOWN',      amount:30.63,  description:'Café Olimpico coffees',        icon:'☕',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:10.21}]}, c2:{included:true,items:[{name:'Share',amount:10.21}]}, c3:{included:true,items:[{name:'Share',amount:10.21}]} } },
+  { id:12, vendor:"SCHWARTZ'S DELI",             amount:81.25,  description:"Schwartz's Deli – smoked meat",icon:'🥩',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:27.08}]}, c2:{included:true,items:[{name:'Share',amount:27.08}]}, c3:{included:true,items:[{name:'Share',amount:27.09}]} } },
+  { id:13, vendor:'LS TIME OUT - BARS',          amount:26.15,  description:'Bar drinks',                   icon:'🍹',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:8.72}]}, c2:{included:true,items:[{name:'Share',amount:8.72}]}, c3:{included:true,items:[{name:'Share',amount:8.71}]} } },
+  { id:14, vendor:'LS TIME OUT TUNNEL ESP',      amount:8.95,   description:'Espresso / coffee',            icon:'☕',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:2.98}]}, c2:{included:true,items:[{name:'Share',amount:2.98}]}, c3:{included:true,items:[{name:'Share',amount:2.99}]} } },
+  { id:15, vendor:'VINCI PARK - DOMINION',       amount:9.66,   description:'Parking',                      icon:'🅿️',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:3.22}]}, c2:{included:true,items:[{name:'Share',amount:3.22}]}, c3:{included:true,items:[{name:'Share',amount:3.22}]} } },
+  { id:16, vendor:'LS BUVETTE NICOLE',           amount:35.51,  description:'Buvette Nicole – dinner/drinks',icon:'🍾',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:11.84}]}, c2:{included:true,items:[{name:'Share',amount:11.84}]}, c3:{included:true,items:[{name:'Share',amount:11.83}]} } },
+  { id:17, vendor:'J D WETHERSPOON',             amount:36.83,  description:'Wetherspoon pub (18 Jun)',     icon:'🍻',
+    splits:{ c1:{included:true,items:[{name:'Share',amount:12.28}]}, c2:{included:true,items:[{name:'Share',amount:12.28}]}, c3:{included:true,items:[{name:'Share',amount:12.27}]} } },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────
+let transactions = [];
+let openTxn = null;
+const STORAGE_KEY = 'canada_trip_2026';
+
+// ── STORAGE ───────────────────────────────────────────────────────────
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    const ind = document.getElementById('save-indicator');
+    ind.textContent = '✓ Saved';
+    setTimeout(() => { ind.textContent = ''; }, 2000);
+  } catch(e) { alert('Could not save data: ' + e.message); }
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      transactions = JSON.parse(raw);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function resetData() {
+  if (!confirm('Reset all splits to default equal shares? This cannot be undone.')) return;
+  transactions = JSON.parse(JSON.stringify(DEFAULT_TRANSACTIONS));
+  openTxn = null;
+  saveData();
+  renderAll();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────
+function fmt(n) { return '£' + Math.abs(n).toFixed(2); }
+
+function coupleTotal(txn, cid) {
+  const s = txn.splits[cid];
+  if (!s.included) return 0;
+  return s.items.reduce((a, it) => a + (parseFloat(it.amount) || 0), 0);
+}
+
+function updateTotals() {
+  let c1=0, c2=0, c3=0, grand=0;
+  transactions.forEach(t => {
+    c1 += coupleTotal(t,'c1');
+    c2 += coupleTotal(t,'c2');
+    c3 += coupleTotal(t,'c3');
+    grand += t.amount;
+  });
+  document.getElementById('total-c1').textContent = fmt(c1);
+  document.getElementById('total-c2').textContent = fmt(c2);
+  document.getElementById('total-c3').textContent = fmt(c3);
+  document.getElementById('grand-total').textContent = fmt(grand);
+}
+
+function splitEvenly(txn) {
+  const active = COUPLES.filter(c => txn.splits[c.id].included);
+  if (!active.length) return;
+  const share = txn.amount / active.length;
+  active.forEach((c, i) => {
+    const rounded = i < active.length-1
+      ? Math.round(share*100)/100
+      : Math.round((txn.amount - (active.length-1)*Math.round(share*100)/100)*100)/100;
+    txn.splits[c.id].items = [{name:'Share', amount: rounded}];
+  });
+}
+
+function iconBg(icon) {
+  const m={'🛒':'#FFF5F5','💊':'#F0FFF4','☕':'#FFFAF0','🅿️':'#EBF8FF','🍺':'#FFFFF0',
+    '🍽️':'#FFF5F5','🧴':'#F0FFF4','🍷':'#FFF5F5','🏪':'#FFFAF0','🚗':'#EBF8FF',
+    '🥩':'#FFF5F5','🍹':'#F0FFFF','🍾':'#FFF5F5','🍻':'#FFFFF0'};
+  return m[icon] || '#F7FAFC';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function renderAll() {
+  renderTransactions();
+  updateTotals();
+  if (document.getElementById('tab-summary').classList.contains('active')) renderSummary();
+}
+
+function renderTransactions() {
+  const list = document.getElementById('txn-list');
+  list.innerHTML = '';
+  transactions.forEach(txn => list.appendChild(buildCard(txn)));
+}
+
+function buildCard(txn) {
+  const card = document.createElement('div');
+  card.className = 'txn-card' + (openTxn === txn.id ? ' open' : '');
+  card.id = 'card-' + txn.id;
+
+  const amtParts = COUPLES
+    .filter(c => txn.splits[c.id].included)
+    .map(c => `<span style="color:${c.color};font-weight:600;">${c.name.split(' ')[0]}: ${fmt(coupleTotal(txn,c.id))}</span>`)
+    .join(' <span style="color:#CBD5E0">·</span> ');
+
+  const allocated = COUPLES.reduce((a,c)=>a+coupleTotal(txn,c.id),0);
+  const diff = Math.round((txn.amount - allocated)*100)/100;
+  const noteClass = Math.abs(diff)<0.01?'ok':'warn';
+  const noteText = Math.abs(diff)<0.01?'✓ Fully allocated':diff>0?`⚠ £${diff.toFixed(2)} unallocated`:`⚠ Over by £${(-diff).toFixed(2)}`;
+
+  let itemsBlockHtml = '';
+  COUPLES.forEach(c => {
+    const s = txn.splits[c.id];
+    const cTotal = coupleTotal(txn, c.id);
+    const itemsHtml = s.items.map((it,idx) => `
+      <div class="item-line">
+        <div class="item-line-name">
+          <input type="text" value="${escHtml(it.name)}" placeholder="Item"
+            oninput="itemUpdate(${txn.id},'${c.id}',${idx},'name',this.value)">
+        </div>
+        <div class="item-amount-wrap">
+          <span>£</span>
+          <input type="number" step="0.01" min="0" value="${it.amount.toFixed(2)}"
+            oninput="itemUpdate(${txn.id},'${c.id}',${idx},'amount',this.value)">
+        </div>
+        <button class="del-item-btn" onclick="delItem(${txn.id},'${c.id}',${idx})">×</button>
+      </div>`).join('');
+
+    itemsBlockHtml += `
+      <div class="couple-split-block" id="block-${txn.id}-${c.id}">
+        <div class="couple-split-header">
+          <div class="couple-name-badge">
+            <div class="couple-dot" style="background:${c.color}"></div>
+            <div>
+              <div class="couple-name">${c.name}</div>
+              <div class="couple-members">${c.members}</div>
+            </div>
+          </div>
+          <div class="couple-included">
+            <span class="couple-total" id="ctot-${txn.id}-${c.id}" style="color:${c.color}">${fmt(cTotal)}</span>
+            <button class="toggle-btn ${s.included?'on':''}" onclick="toggleCouple(${txn.id},'${c.id}')"></button>
+          </div>
+        </div>
+        ${s.included ? `<div class="item-lines" id="items-${txn.id}-${c.id}">
+          ${itemsHtml}
+          <button class="add-item-btn" onclick="addItem(${txn.id},'${c.id}')">+ Add item</button>
+        </div>` : ''}
+      </div>`;
+  });
+
+  card.innerHTML = `
+    <div class="txn-header" onclick="toggleCard(${txn.id})">
+      <div class="txn-icon" style="background:${iconBg(txn.icon)}">${txn.icon}</div>
+      <div class="txn-main">
+        <div class="txn-vendor">${escHtml(txn.vendor)}</div>
+        <div class="txn-desc">${escHtml(txn.description)}</div>
+        <div class="txn-amts">${amtParts}</div>
+      </div>
+      <div class="txn-right">
+        <div class="txn-amount">${fmt(txn.amount)}</div>
+        <div class="txn-chevron">›</div>
+      </div>
+    </div>
+    <div class="txn-detail">
+      <div class="detail-row">
+        <label>Description</label>
+        <input type="text" value="${escHtml(txn.description)}" oninput="txnDescUpdate(${txn.id},this.value)">
+      </div>
+      <div class="detail-row">
+        <label>Quick Split</label>
+        <div class="preset-row">
+          <button class="preset-btn" onclick="presetEvenly(${txn.id})">÷3 Evenly</button>
+          <button class="preset-btn" onclick="presetOnly(${txn.id},'c1')">Only Jenni&James</button>
+          <button class="preset-btn" onclick="presetOnly(${txn.id},'c2')">Only Helen&Adam</button>
+          <button class="preset-btn" onclick="presetOnly(${txn.id},'c3')">Only Michael&Alison</button>
+        </div>
+      </div>
+      <div class="split-title">Split by couple</div>
+      <div class="alloc-note ${noteClass}" id="rem-${txn.id}">${noteText}</div>
+      ${itemsBlockHtml}
+    </div>`;
+  return card;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────
+function toggleCard(id) {
+  openTxn = openTxn===id ? null : id;
+  renderTransactions();
+  // scroll card into view
+  setTimeout(()=>{ const el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+}
+
+function txnDescUpdate(id, val) {
+  const t = transactions.find(t=>t.id===id);
+  t.description = val;
+  autoSave();
+}
+
+function toggleCouple(txnId, cid) {
+  const txn = transactions.find(t=>t.id===txnId);
+  txn.splits[cid].included = !txn.splits[cid].included;
+  if (!txn.splits[cid].included) txn.splits[cid].items = [{name:'Share',amount:0}];
+  refreshBlock(txn, cid);
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function itemUpdate(txnId, cid, idx, field, val) {
+  const txn = transactions.find(t=>t.id===txnId);
+  if (field==='amount') txn.splits[cid].items[idx].amount = parseFloat(val)||0;
+  else txn.splits[cid].items[idx].name = val;
+  const el = document.getElementById(`ctot-${txnId}-${cid}`);
+  if(el) el.textContent = fmt(coupleTotal(txn,cid));
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function addItem(txnId, cid) {
+  const txn = transactions.find(t=>t.id===txnId);
+  txn.splits[cid].items.push({name:'',amount:0});
+  refreshBlock(txn,cid);
+}
+
+function delItem(txnId, cid, idx) {
+  const txn = transactions.find(t=>t.id===txnId);
+  if (txn.splits[cid].items.length===1) txn.splits[cid].items=[{name:'Share',amount:0}];
+  else txn.splits[cid].items.splice(idx,1);
+  refreshBlock(txn,cid);
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function presetEvenly(txnId) {
+  const txn = transactions.find(t=>t.id===txnId);
+  COUPLES.forEach(c=>txn.splits[c.id].included=true);
+  splitEvenly(txn);
+  COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function presetOnly(txnId, only) {
+  const txn = transactions.find(t=>t.id===txnId);
+  COUPLES.forEach(c=>{
+    txn.splits[c.id].included = (c.id===only);
+    txn.splits[c.id].items = c.id===only ? [{name:'Full amount',amount:txn.amount}] : [{name:'Share',amount:0}];
+  });
+  COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function refreshBlock(txn, cid) {
+  const c = COUPLES.find(x=>x.id===cid);
+  const s = txn.splits[cid];
+  const block = document.getElementById(`block-${txn.id}-${cid}`);
+  if(!block) return;
+  const cTotal = coupleTotal(txn,cid);
+  block.querySelector('.toggle-btn').className = 'toggle-btn '+(s.included?'on':'');
+  const totEl = block.querySelector('.couple-total');
+  if(totEl) totEl.textContent = fmt(cTotal);
+  const existing = document.getElementById(`items-${txn.id}-${cid}`);
+  if(existing) existing.remove();
+  if(s.included) {
+    const div = document.createElement('div');
+    div.className='item-lines'; div.id=`items-${txn.id}-${cid}`;
+    div.innerHTML = s.items.map((it,idx)=>`
+      <div class="item-line">
+        <div class="item-line-name">
+          <input type="text" value="${escHtml(it.name)}" placeholder="Item"
+            oninput="itemUpdate(${txn.id},'${cid}',${idx},'name',this.value)">
+        </div>
+        <div class="item-amount-wrap">
+          <span>£</span>
+          <input type="number" step="0.01" min="0" value="${it.amount.toFixed(2)}"
+            oninput="itemUpdate(${txn.id},'${cid}',${idx},'amount',this.value)">
+        </div>
+        <button class="del-item-btn" onclick="delItem(${txn.id},'${cid}',${idx})">×</button>
+      </div>`).join('')
+      + `<button class="add-item-btn" onclick="addItem(${txn.id},'${cid}')">+ Add item</button>`;
+    block.appendChild(div);
+  }
+}
+
+function refreshNote(txn) {
+  const allocated = COUPLES.reduce((a,c)=>a+coupleTotal(txn,c.id),0);
+  const diff = Math.round((txn.amount-allocated)*100)/100;
+  const el = document.getElementById(`rem-${txn.id}`);
+  if(!el) return;
+  if(Math.abs(diff)<0.01){ el.className='alloc-note ok'; el.textContent='✓ Fully allocated'; }
+  else if(diff>0){ el.className='alloc-note warn'; el.textContent=`⚠ £${diff.toFixed(2)} unallocated`; }
+  else { el.className='alloc-note warn'; el.textContent=`⚠ Over-allocated by £${(-diff).toFixed(2)}`; }
+}
+
+// ── AUTO SAVE (debounced) ─────────────────────────────────────────────
+let saveTimer = null;
+function autoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); } catch(e){}
+  }, 800);
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────────
+function renderSummary() {
+  const list = document.getElementById('summary-list');
+  list.innerHTML='';
+  COUPLES.forEach(c=>{
+    let total=0;
+    const items=[];
+    transactions.forEach(txn=>{
+      const amt=coupleTotal(txn,c.id);
+      if(amt>0.005){ items.push({name:txn.description||txn.vendor, amount:amt}); total+=amt; }
+    });
+    const card=document.createElement('div');
+    card.className='summary-card';
+    card.innerHTML=`
+      <div class="summary-couple-header">
+        <div class="summary-couple-name" style="color:${c.color}">${c.name}</div>
+        <div class="summary-couple-total" style="color:${c.color}">${fmt(total)}</div>
+      </div>
+      <div>${items.map(it=>`<div class="summary-line"><span class="s-name">${escHtml(it.name)}</span><span class="s-amt">${fmt(it.amount)}</span></div>`).join('') || '<div style="color:var(--muted);font-size:13px;">Nothing allocated</div>'}</div>`;
+    list.appendChild(card);
+  });
+}
+
+// ── EXPORT PDF ────────────────────────────────────────────────────────
+function exportPDF() {
+  // Build print document
+  const totals = {};
+  COUPLES.forEach(c=>{ totals[c.id]=transactions.reduce((a,t)=>a+coupleTotal(t,c.id),0); });
+  const grandTotal = transactions.reduce((a,t)=>a+t.amount,0);
+  const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+
+  let coupleBlocks = COUPLES.map(c=>{
+    const items=[];
+    transactions.forEach(txn=>{
+      const amt=coupleTotal(txn,c.id);
+      if(amt>0.005) items.push({name:txn.description||txn.vendor,amount:amt});
+    });
+    return `
+      <div class="print-couple">
+        <div class="print-couple-header">
+          <span>${c.name}</span>
+          <span>${fmt(totals[c.id])}</span>
+        </div>
+        ${items.map(it=>`<div class="print-row"><span class="pr-name">${escHtml(it.name)}</span><span class="pr-amt">${fmt(it.amount)}</span></div>`).join('')}
+      </div>`;
+  }).join('');
+
+  let txnRows = transactions.map(t=>`
+    <tr>
+      <td>${escHtml(t.description||t.vendor)}</td>
+      <td style="text-align:right">${fmt(t.amount)}</td>
+      <td style="text-align:right">${fmt(coupleTotal(t,'c1'))}</td>
+      <td style="text-align:right">${fmt(coupleTotal(t,'c2'))}</td>
+      <td style="text-align:right">${fmt(coupleTotal(t,'c3'))}</td>
+    </tr>`).join('');
+
+  document.getElementById('print-doc').innerHTML = `
+    <div class="print-page">
+      <div class="print-header">
+        <div class="print-title">🍁 Canada Trip — Expense Summary</div>
+        <div class="print-sub">Paid by James · Generated ${today}</div>
+      </div>
+      <div class="print-section">
+        <div class="print-section-title">What Each Couple Owes James</div>
+        ${coupleBlocks}
+        <div class="print-grand">
+          <span>Total Trip Spend</span>
+          <span>${fmt(grandTotal)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="print-page">
+      <div class="print-header">
+        <div class="print-title">Transaction Breakdown</div>
+        <div class="print-sub">Canada Trip · Paid by James</div>
+      </div>
+      <table class="print-txn-table">
+        <thead><tr>
+          <th>Transaction</th>
+          <th style="text-align:right">Total</th>
+          <th style="text-align:right">Jenni&James</th>
+          <th style="text-align:right">Helen&Adam</th>
+          <th style="text-align:right">Michael&Alison</th>
+        </tr></thead>
+        <tbody>${txnRows}</tbody>
+      </table>
+    </div>`;
+
+  setTimeout(()=>{ window.print(); }, 100);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',
+      (i===0&&tab==='transactions')||(i===1&&tab==='summary')||(i===2&&tab==='export'));
+  });
+  ['transactions','summary','export'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+  if(tab==='summary') renderSummary();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+const loaded = loadData();
+if (!loaded) {
+  transactions = JSON.parse(JSON.stringify(DEFAULT_TRANSACTIONS));
+}
+renderAll();
+
+// Auto-save on page close
+window.addEventListener('beforeunload', ()=>{
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); } catch(e){}
+});
+</script>
+</body>
+</html>
