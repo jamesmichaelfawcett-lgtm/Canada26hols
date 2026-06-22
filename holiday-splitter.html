@@ -142,6 +142,29 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .export-btn.secondary { background: var(--bg); color: var(--text); border: 1.5px solid var(--border); }
 .export-note { font-size: 11px; color: var(--muted); line-height: 1.5; }
 
+/* SMART REALLOC PANEL */
+.realloc-panel { background: #F7FAFF; border: 1.5px solid #C3DAFE; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.realloc-title { font-size: 11px; font-weight: 700; color: #3B5BDB; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+.realloc-couple-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.realloc-couple-row:last-child { margin-bottom: 0; }
+.realloc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.realloc-name { font-size: 12px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.realloc-input-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.realloc-input-wrap span { font-size: 12px; color: var(--muted); }
+.realloc-input { width: 72px; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 7px; font-size: 13px; font-family: var(--font); text-align: right; outline: none; background: white; color: var(--text); }
+.realloc-input:focus { border-color: #3B5BDB; }
+.realloc-input.locked { background: #EDF2F7; color: var(--muted); }
+.realloc-lock-btn { background: none; border: 1.5px solid var(--border); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.realloc-lock-btn.locked { background: #EBF0FF; border-color: #3B5BDB; }
+.realloc-remainder-bar { margin-top: 10px; padding-top: 10px; border-top: 1px solid #C3DAFE; }
+.realloc-remainder-label { font-size: 11px; color: #3B5BDB; font-weight: 600; margin-bottom: 6px; }
+.realloc-remainder-val { font-size: 16px; font-weight: 800; }
+.realloc-remainder-val.ok { color: var(--green); }
+.realloc-remainder-val.warn { color: var(--red); }
+.realloc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.realloc-action-btn { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 20px; border: 1.5px solid #C3DAFE; background: white; color: #3B5BDB; cursor: pointer; font-family: var(--font); white-space: nowrap; }
+.realloc-action-btn:active { background: #EBF0FF; }
+
 /* FAB */
 .fab { position: fixed; bottom: 28px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: white; border: none; font-size: 28px; cursor: pointer; box-shadow: 0 4px 16px rgba(26,86,219,0.4); z-index: 90; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
 .fab:active { transform: scale(0.93); }
@@ -548,9 +571,11 @@ function buildCard(txn) {
           <button class="preset-btn" onclick="presetOnly(${txn.id},'c1')">Only Jenni&James</button>
           <button class="preset-btn" onclick="presetOnly(${txn.id},'c2')">Only Helen&Adam</button>
           <button class="preset-btn" onclick="presetOnly(${txn.id},'c3')">Only Michael&Alison</button>
+
         </div>
       </div>
-      <div class="split-title">Split by couple</div>
+      ${buildReallocPanel(txn)}
+      <div class="split-title">Itemised breakdown</div>
       <div class="alloc-note ${noteClass}" id="rem-${txn.id}">${noteText}</div>
       ${itemsBlockHtml}
       <button class="del-txn-btn" onclick="deleteTransaction(${txn.id})">🗑 Remove transaction</button>
@@ -625,11 +650,150 @@ function delItem(txnId, cid, idx) {
   autoSave();
 }
 
+// ── SMART REALLOCATION PANEL ─────────────────────────────────────────
+// lockedCouples[txnId] = Set of couple ids that are "locked" (pinned amount)
+const lockedCouples = {};
+
+function getLocked(txnId) {
+  if (!lockedCouples[txnId]) lockedCouples[txnId] = new Set();
+  return lockedCouples[txnId];
+}
+
+function buildReallocPanel(txn) {
+  const locked = getLocked(txn.id);
+  const allocated = COUPLES.reduce((a,c)=>a+coupleTotal(txn,c.id),0);
+  const remainder = Math.round((txn.amount - allocated)*100)/100;
+  const remClass = Math.abs(remainder)<0.01 ? 'ok' : 'warn';
+  const remText = Math.abs(remainder)<0.01 ? '✓ Fully allocated'
+    : remainder>0 ? `£${remainder.toFixed(2)} still to allocate`
+    : `£${(-remainder).toFixed(2)} over-allocated`;
+
+  const activeC = COUPLES.filter(c=>txn.splits[c.id].included);
+  const unlockedC = activeC.filter(c=>!locked.has(c.id));
+
+  let rows = COUPLES.map(c => {
+    const s = txn.splits[c.id];
+    const cTotal = coupleTotal(txn, c.id);
+    const isLocked = locked.has(c.id);
+    const isOff = !s.included;
+    return `
+      <div class="realloc-couple-row">
+        <div class="realloc-dot" style="background:${c.color}"></div>
+        <div class="realloc-name" style="color:${isOff?'var(--muted)':c.color}">${c.name}</div>
+        <div class="realloc-input-wrap">
+          <span>£</span>
+          <input class="realloc-input${isLocked?' locked':''}" type="number" step="0.01" min="0"
+            value="${isOff?'0.00':cTotal.toFixed(2)}"
+            ${isOff||isLocked?'readonly':''}
+            id="ri-${txn.id}-${c.id}"
+            onchange="reallocSetAmount(${txn.id},'${c.id}',this.value)">
+        </div>
+        <button class="realloc-lock-btn${isLocked?' locked':''}" title="${isLocked?'Unlock':'Lock this amount'}"
+          onclick="reallocToggleLock(${txn.id},'${c.id}')"
+          ${isOff?'disabled style="opacity:0.3"':''}>
+          ${isLocked?'🔒':'🔓'}
+        </button>
+      </div>`;
+  }).join('');
+
+  // Distribute remainder actions — only show if there's something to distribute
+  let distributeHtml = '';
+  if (Math.abs(remainder) >= 0.01 && unlockedC.length > 0) {
+    const btnLabel = remainder > 0 ? 'Distribute remainder' : 'Absorb over-allocation';
+    let actionBtns = `<button class="realloc-action-btn" onclick="reallocDistribute(${txn.id},'equal')">÷ Evenly between unlocked</button>`;
+    unlockedC.forEach(c => {
+      actionBtns += `<button class="realloc-action-btn" onclick="reallocDistribute(${txn.id},'${c.id}')" style="border-color:${c.color};color:${c.color}">All to ${c.name.split(' ')[0]}</button>`;
+    });
+    distributeHtml = `
+      <div class="realloc-actions">
+        <div style="font-size:11px;font-weight:600;color:#3B5BDB;width:100%;margin-bottom:4px;">${btnLabel}:</div>
+        ${actionBtns}
+      </div>`;
+  }
+
+  return `
+    <div class="realloc-panel" id="realloc-${txn.id}">
+      <div class="realloc-title">⚡ Smart Split</div>
+      ${rows}
+      <div class="realloc-remainder-bar">
+        <div class="realloc-remainder-label">Remaining to allocate</div>
+        <div class="realloc-remainder-val ${remClass}">${remText}</div>
+        ${distributeHtml}
+      </div>
+    </div>`;
+}
+
+function reallocToggleLock(txnId, cid) {
+  const locked = getLocked(txnId);
+  if (locked.has(cid)) locked.delete(cid);
+  else locked.add(cid);
+  // Re-render just the realloc panel
+  const txn = transactions.find(t=>t.id===txnId);
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
+  else { renderTransactions(); }
+}
+
+function reallocSetAmount(txnId, cid, val) {
+  const txn = transactions.find(t=>t.id===txnId);
+  const amount = Math.max(0, parseFloat(val)||0);
+  // Set first item to this amount (consolidate)
+  txn.splits[cid].items = [{name: txn.splits[cid].items[0]?.name || 'Share', amount}];
+  txn.splits[cid].included = amount > 0;
+  // Auto-lock this couple since user just typed a value
+  getLocked(txnId).add(cid);
+  refreshBlock(txn, cid);
+  // refresh realloc panel
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function reallocDistribute(txnId, mode) {
+  const txn = transactions.find(t=>t.id===txnId);
+  const locked = getLocked(txnId);
+  const allocated = COUPLES.reduce((a,c)=>a+coupleTotal(txn,c.id),0);
+  const remainder = Math.round((txn.amount - allocated)*100)/100;
+  if (Math.abs(remainder) < 0.01) return;
+
+  const activeC = COUPLES.filter(c=>txn.splits[c.id].included);
+  const unlockedC = activeC.filter(c=>!locked.has(c.id));
+  if (!unlockedC.length) return;
+
+  if (mode === 'equal') {
+    const perCouple = Math.round(remainder / unlockedC.length * 100) / 100;
+    unlockedC.forEach((c, i) => {
+      const existing = coupleTotal(txn, c.id);
+      const add = i < unlockedC.length-1 ? perCouple
+        : Math.round((remainder - perCouple*(unlockedC.length-1))*100)/100;
+      txn.splits[c.id].items = [{name: txn.splits[c.id].items[0]?.name || 'Share', amount: Math.max(0, existing+add)}];
+    });
+  } else {
+    // Give all remainder to one specific couple
+    const target = unlockedC.find(c=>c.id===mode);
+    if (!target) return;
+    const existing = coupleTotal(txn, target.id);
+    txn.splits[target.id].items = [{name: txn.splits[target.id].items[0]?.name || 'Share', amount: Math.max(0, existing+remainder)}];
+  }
+
+  COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
 function presetEvenly(txnId) {
   const txn = transactions.find(t=>t.id===txnId);
+  getLocked(txnId).clear();
   COUPLES.forEach(c=>txn.splits[c.id].included=true);
   splitEvenly(txn);
   COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
   refreshNote(txn);
   updateTotals();
   autoSave();
@@ -637,11 +801,34 @@ function presetEvenly(txnId) {
 
 function presetOnly(txnId, only) {
   const txn = transactions.find(t=>t.id===txnId);
+  getLocked(txnId).clear();
   COUPLES.forEach(c=>{
     txn.splits[c.id].included = (c.id===only);
     txn.splits[c.id].items = c.id===only ? [{name:'Full amount',amount:txn.amount}] : [{name:'Share',amount:0}];
   });
   COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
+  refreshNote(txn);
+  updateTotals();
+  autoSave();
+}
+
+function presetTwo(txnId, a, b) {
+  const txn = transactions.find(t=>t.id===txnId);
+  getLocked(txnId).clear();
+  const share = Math.round(txn.amount / 2 * 100) / 100;
+  const share2 = Math.round((txn.amount - share) * 100) / 100;
+  COUPLES.forEach((c, i) => {
+    const active = c.id===a || c.id===b;
+    txn.splits[c.id].included = active;
+    if (c.id===a) txn.splits[c.id].items = [{name:'Share', amount:share}];
+    else if (c.id===b) txn.splits[c.id].items = [{name:'Share', amount:share2}];
+    else txn.splits[c.id].items = [{name:'Share', amount:0}];
+  });
+  COUPLES.forEach(c=>refreshBlock(txn,c.id));
+  const panel = document.getElementById('realloc-'+txnId);
+  if (panel) panel.outerHTML = buildReallocPanel(txn);
   refreshNote(txn);
   updateTotals();
   autoSave();
