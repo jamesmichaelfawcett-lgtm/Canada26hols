@@ -272,6 +272,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
         <input type="number" id="new-amount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
       </div>
       <div class="modal-field">
+        <label>Date</label>
+        <input type="date" id="new-date" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:var(--font);background:var(--bg);color:var(--text);outline:none;">
+      </div>
+      <div class="modal-field">
         <label>Icon</label>
         <div class="icon-grid" id="icon-grid"></div>
       </div>
@@ -449,7 +453,14 @@ function renderAll() {
 function renderTransactions() {
   const list = document.getElementById('txn-list');
   list.innerHTML = '';
-  transactions.forEach(txn => list.appendChild(buildCard(txn)));
+  // Sort newest first: by date desc if set, else by id desc
+  const sorted = [...transactions].sort((a, b) => {
+    if (a.date && b.date) return b.date.localeCompare(a.date);
+    if (a.date && !b.date) return -1;
+    if (!a.date && b.date) return 1;
+    return b.id - a.id;
+  });
+  sorted.forEach(txn => list.appendChild(buildCard(txn)));
 }
 
 function buildCard(txn) {
@@ -517,6 +528,7 @@ function buildCard(txn) {
       </div>
       <div class="txn-right">
         <div class="txn-amount">${fmt(txn.amount)}</div>
+        ${txn.date ? `<div id="date-badge-${txn.id}" style="font-size:10px;color:var(--muted);text-align:right;margin-top:2px;">${fmtDate(txn.date)}</div>` : `<div id="date-badge-${txn.id}" style="font-size:10px;color:var(--muted);text-align:right;margin-top:2px;"></div>`}
         <div class="txn-chevron">›</div>
       </div>
     </div>
@@ -524,6 +536,10 @@ function buildCard(txn) {
       <div class="detail-row">
         <label>Description</label>
         <input type="text" value="${escHtml(txn.description)}" oninput="txnDescUpdate(${txn.id},this.value)">
+      </div>
+      <div class="detail-row">
+        <label>Date</label>
+        <input type="date" value="${txn.date||''}" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:var(--font);background:var(--bg);color:var(--text);outline:none;" oninput="txnDateUpdate(${txn.id},this.value)">
       </div>
       <div class="detail-row">
         <label>Quick Split</label>
@@ -548,6 +564,22 @@ function toggleCard(id) {
   renderTransactions();
   // scroll card into view
   setTimeout(()=>{ const el=document.getElementById('card-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },50);
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(day)} ${months[parseInt(m)-1]}`;
+}
+
+function txnDateUpdate(id, val) {
+  const t = transactions.find(t=>t.id===id);
+  t.date = val;
+  // Update the date badge on the card header without full re-render
+  const badge = document.getElementById('date-badge-'+id);
+  if (badge) badge.textContent = fmtDate(val);
+  autoSave();
 }
 
 function txnDescUpdate(id, val) {
@@ -713,8 +745,16 @@ function exportPDF() {
       </div>`;
   }).join('');
 
-  let txnRows = transactions.map(t=>`
+  // Sort same as UI for PDF
+  const sortedForPrint = [...transactions].sort((a,b)=>{
+    if(a.date&&b.date) return b.date.localeCompare(a.date);
+    if(a.date&&!b.date) return -1;
+    if(!a.date&&b.date) return 1;
+    return b.id-a.id;
+  });
+  let txnRows = sortedForPrint.map(t=>`
     <tr>
+      <td>${t.date ? fmtDate(t.date) : ''}</td>
       <td>${escHtml(t.description||t.vendor)}</td>
       <td style="text-align:right">${fmt(t.amount)}</td>
       <td style="text-align:right">${fmt(coupleTotal(t,'c1'))}</td>
@@ -744,6 +784,7 @@ function exportPDF() {
       </div>
       <table class="print-txn-table">
         <thead><tr>
+          <th>Date</th>
           <th>Transaction</th>
           <th style="text-align:right">Total</th>
           <th style="text-align:right">Jenni&James</th>
@@ -781,6 +822,9 @@ function openAddModal() {
   document.getElementById('new-vendor').value = '';
   document.getElementById('new-desc').value = '';
   document.getElementById('new-amount').value = '';
+  // Default date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('new-date').value = today;
   buildIconGrid();
   document.getElementById('add-modal').classList.add('open');
   setTimeout(() => document.getElementById('new-vendor').focus(), 300);
@@ -798,6 +842,7 @@ function addTransaction() {
   const vendor = document.getElementById('new-vendor').value.trim().toUpperCase();
   const desc   = document.getElementById('new-desc').value.trim();
   const amount = parseFloat(document.getElementById('new-amount').value);
+  const date   = document.getElementById('new-date').value;
 
   if (!vendor) { document.getElementById('new-vendor').focus(); return; }
   if (!amount || amount <= 0) { document.getElementById('new-amount').focus(); return; }
@@ -811,6 +856,7 @@ function addTransaction() {
     vendor: vendor,
     description: desc || vendor,
     amount: amount,
+    date: date || '',
     icon: selectedIcon,
     splits: {
       c1: { included: true, items: [{ name: 'Share', amount: share }] },
