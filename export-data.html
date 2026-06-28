@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Export Trip Data</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    background: #F0F4F8;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 24px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .icon { font-size: 56px; margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 800; color: #1A202C; margin-bottom: 8px; }
+  p { font-size: 14px; color: #718096; line-height: 1.6; margin-bottom: 24px; }
+  .btn {
+    display: block; width: 100%;
+    background: #1A56DB; color: white;
+    border: none; border-radius: 14px;
+    padding: 16px; font-size: 17px;
+    font-weight: 700; font-family: inherit;
+    cursor: pointer; margin-bottom: 12px;
+    transition: opacity 0.15s;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn.secondary {
+    background: #EDF2F7; color: #1A202C;
+    font-size: 14px; padding: 13px;
+  }
+  .status {
+    margin-top: 20px; padding: 14px;
+    border-radius: 12px; font-size: 14px;
+    font-weight: 600; display: none;
+  }
+  .status.ok { background: #F0FFF4; color: #276749; display: block; }
+  .status.warn { background: #FFF5F5; color: #C53030; display: block; }
+  .txn-count {
+    display: inline-block;
+    background: #EBF0FF; color: #1A56DB;
+    font-size: 13px; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .divider { border: none; border-top: 1px solid #E2E8F0; margin: 20px 0; }
+  .small { font-size: 12px; color: #A0AEC0; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📦</div>
+  <h1>Canada Trip<br>Data Export</h1>
+  <p>This tool reads your saved trip data and downloads it as a backup file you can reimport into the app.</p>
+
+  <div id="txn-count" class="txn-count" style="display:none"></div>
+
+  <button class="btn" onclick="doExport()">⬇️ Download Backup (.json)</button>
+  <button class="btn secondary" onclick="previewData()">👁 Preview Data</button>
+
+  <div class="status" id="status"></div>
+
+  <hr class="divider">
+  <p class="small">
+    After downloading, update your app on GitHub, open the web clip, go to the <strong>Export tab → Import Data Backup</strong> and select the downloaded file.
+  </p>
+</div>
+
+<script>
+const STORAGE_KEY = 'canada_trip_2026';
+
+function getData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+window.addEventListener('load', () => {
+  const data = getData();
+  const countEl = document.getElementById('txn-count');
+  if (data && data.length) {
+    countEl.textContent = `${data.length} transactions found`;
+    countEl.style.display = 'inline-block';
+  } else {
+    countEl.textContent = 'No data found';
+    countEl.style.display = 'inline-block';
+    countEl.style.background = '#FFF5F5';
+    countEl.style.color = '#C53030';
+  }
+});
+
+function doExport() {
+  const data = getData();
+  if (!data) {
+    showStatus('❌ No trip data found in this browser. Make sure you are opening this page in the same Safari browser where your web app runs.', 'warn');
+    return;
+  }
+
+  const backup = {
+    version: 1,
+    exported: new Date().toISOString(),
+    transactions: data
+  };
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `canada-trip-backup-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showStatus(`✓ Backup downloaded! ${data.length} transactions saved. Check your Files app → Downloads folder.`, 'ok');
+}
+
+function previewData() {
+  const data = getData();
+  if (!data) {
+    showStatus('❌ No data found. Make sure this page is open in the same Safari browser as your web app.', 'warn');
+    return;
+  }
+  const total = data.reduce((a, t) => a + t.amount, 0);
+  const msg = `Found ${data.length} transactions totalling £${total.toFixed(2)}.\n\nVendors: ${data.slice(0,5).map(t=>t.vendor).join(', ')}${data.length > 5 ? '...' : ''}`;
+  showStatus('✓ ' + msg, 'ok');
+}
+</script>
+</body>
+</html>
