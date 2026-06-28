@@ -1,4 +1,4 @@
-const CACHE = 'canada-trip-v1';
+const CACHE = 'canada-trip-v2';
 const FILES = [
   './holiday-splitter.html'
 ];

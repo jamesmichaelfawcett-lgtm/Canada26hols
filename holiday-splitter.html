@@ -325,7 +325,22 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     </p>
   </div>
   <div class="export-panel">
-    <h3>Data &amp; Storage</h3>
+    <h3>Backup &amp; Restore Data</h3>
+    <button class="export-btn secondary" onclick="exportData()">
+      <span class="eb-icon">📦</span>
+      <span>Export Data Backup (.json)</span>
+    </button>
+    <label class="export-btn secondary" style="margin-top:4px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <span class="eb-icon">📥</span>
+      <span>Import Data Backup</span>
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none;">
+    </label>
+    <p class="export-note" style="margin-top:10px;">
+      <strong>Before updating the app file on GitHub</strong>, tap <em>Export Data Backup</em> to save a .json file of all your transactions. After uploading the new version, tap <em>Import Data Backup</em> and select that file — all your data will be restored instantly.
+    </p>
+  </div>
+  <div class="export-panel">
+    <h3>Storage</h3>
     <button class="export-btn secondary" onclick="saveData()">
       <span class="eb-icon">💾</span>
       <span>Save Progress Now</span>
@@ -335,7 +350,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
       <span>Reset to Defaults</span>
     </button>
     <p class="export-note" style="margin-top:10px;">
-      Your data is automatically saved in this browser. Use <strong>Save Progress Now</strong> to make sure the latest changes are stored. Data persists when you close and reopen the page.
+      Your data auto-saves as you make changes. Use <strong>Save Now</strong> to force an immediate save.
     </p>
   </div>
 </div>
@@ -894,7 +909,7 @@ function renderSummary() {
     const items=[];
     transactions.forEach(txn=>{
       const amt=coupleTotal(txn,c.id);
-      if(amt>0.005){ items.push({name:txn.description||txn.vendor, amount:amt}); total+=amt; }
+      if(amt>0.005){ items.push({vendor:txn.vendor, name:txn.description||txn.vendor, amount:amt}); total+=amt; }
     });
     const card=document.createElement('div');
     card.className='summary-card';
@@ -903,7 +918,7 @@ function renderSummary() {
         <div class="summary-couple-name" style="color:${c.color}">${c.name}</div>
         <div class="summary-couple-total" style="color:${c.color}">${fmt(total)}</div>
       </div>
-      <div>${items.map(it=>`<div class="summary-line"><span class="s-name">${escHtml(it.name)}</span><span class="s-amt">${fmt(it.amount)}</span></div>`).join('') || '<div style="color:var(--muted);font-size:13px;">Nothing allocated</div>'}</div>`;
+      <div>${items.map(it=>`<div class="summary-line"><div class="s-name"><div style="font-weight:600;color:var(--text);font-size:12px;">${escHtml(it.vendor)}</div><div style="font-size:11px;margin-top:1px;">${escHtml(it.name)}</div></div><span class="s-amt">${fmt(it.amount)}</span></div>`).join('') || '<div style="color:var(--muted);font-size:13px;">Nothing allocated</div>'}</div>`;
     list.appendChild(card);
   });
 }
@@ -920,7 +935,7 @@ function exportPDF() {
     const items=[];
     transactions.forEach(txn=>{
       const amt=coupleTotal(txn,c.id);
-      if(amt>0.005) items.push({name:txn.description||txn.vendor,amount:amt});
+      if(amt>0.005) items.push({vendor:txn.vendor, name:txn.description||txn.vendor, amount:amt});
     });
     return `
       <div class="print-couple">
@@ -928,7 +943,7 @@ function exportPDF() {
           <span>${c.name}</span>
           <span>${fmt(totals[c.id])}</span>
         </div>
-        ${items.map(it=>`<div class="print-row"><span class="pr-name">${escHtml(it.name)}</span><span class="pr-amt">${fmt(it.amount)}</span></div>`).join('')}
+        ${items.map(it=>`<div class="print-row"><span class="pr-name"><strong>${escHtml(it.vendor)}</strong> &mdash; ${escHtml(it.name)}</span><span class="pr-amt">${fmt(it.amount)}</span></div>`).join('')}
       </div>`;
   }).join('');
 
@@ -983,6 +998,60 @@ function exportPDF() {
     </div>`;
 
   setTimeout(()=>{ window.print(); }, 100);
+}
+
+// ── DATA BACKUP / RESTORE ────────────────────────────────────────────
+function exportData() {
+  try {
+    const backup = {
+      version: 1,
+      exported: new Date().toISOString(),
+      transactions: transactions
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().split('T')[0];
+    a.href = url;
+    a.download = `canada-trip-backup-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Export failed: ' + e.message);
+  }
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup.transactions || !Array.isArray(backup.transactions)) {
+        alert('Invalid backup file — please use a file exported from this app.');
+        return;
+      }
+      if (!confirm(`Import ${backup.transactions.length} transactions from backup dated ${backup.exported ? new Date(backup.exported).toLocaleDateString('en-GB') : 'unknown'}?\n\nThis will replace your current data.`)) return;
+      transactions = backup.transactions;
+      openTxn = null;
+      saveData();
+      renderAll();
+      switchTab('transactions');
+      // Show success briefly
+      const ind = document.getElementById('save-indicator');
+      ind.textContent = '✓ Data restored!';
+      setTimeout(() => { ind.textContent = ''; }, 3000);
+    } catch(err) {
+      alert('Could not read backup file: ' + err.message);
+    }
+    // Reset input so same file can be re-imported if needed
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ── ADD TRANSACTION MODAL ─────────────────────────────────────────────
